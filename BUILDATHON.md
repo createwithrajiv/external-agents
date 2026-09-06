@@ -155,10 +155,28 @@ tree.
 **4. Semantic diff of the submitted implementation.**
 
 ```
-entire graph diff <base> HEAD
+entire graph diff --base f31731c --head HEAD --repo . -- agents/entire-agent-aider
 ```
 
-*(to be recorded against the final commit)*
+Scoped to the adapter, the entity-level change list is:
+
+```
+internal/aider/agent_test.go       + 12 functions added
+internal/aider/hooks_test.go       + 14 functions added
+internal/aider/state_test.go       +  8 functions added
+internal/aider/transcript_test.go  + 11 functions added
+internal/aider/state.go            ~ function loadState body changed (5 dependents)
+```
+
+**The finding that matters: exactly one production function changed.**
+`loadState`, with 5 dependents flagged — which is precisely the null-unmarshal
+bug the new tests surfaced. Every other entity in the diff is an added test.
+
+That is the verification we wanted from the diff: it confirms the test pass
+introduced no incidental behaviour change, and it independently points at the
+one function whose behaviour did change, matching what the test failure told us.
+The "5 dependents" count is also the graph's own signal to run the tests before
+trusting the change — which we did (`go test ./...`, 65 cases green).
 
 ## Noon Curveball: what changed and how we adapted
 
