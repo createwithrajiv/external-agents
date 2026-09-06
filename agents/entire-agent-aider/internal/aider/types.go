@@ -28,6 +28,13 @@ const (
 // never recorded as session changes.
 const (
 	sessionDirRel = ".entire/aider"
+
+	// transcriptRel is where BOTH transcript formats land. The path is part of
+	// the managed config block, so leaving it alone is what keeps install-hooks
+	// and every existing installation unaffected by the arrival of the
+	// structured format — the format is detected from the bytes instead. It
+	// also means there stays exactly one session directory and one state.json,
+	// so turn-end dedup needs no per-format keying.
 	transcriptRel = ".entire/aider/chat.md"
 	llmHistoryRel = ".entire/aider/llm.log"
 	inputHistRel  = ".entire/aider/input.history"
@@ -41,8 +48,10 @@ const (
 	aiderConfigFile = ".aider.conf.yml"
 )
 
-// Chat-history markers, verified by generating testdata/chat_history.md with
-// aider's own InputOutput writer.
+// Chat-history markers for the MARKDOWN format, verified by generating
+// testdata/chat_history.md with aider's own InputOutput writer. The structured
+// JSONL format shares none of these; its discriminators live in jsonl.go, and
+// detectFormat decides which decoder a transcript reaches.
 const (
 	// promptLinePrefix opens a user-input line. IO.user_input (io.py:775) sets
 	// prefix = "####" and applies it to EVERY line of a multi-line prompt, so

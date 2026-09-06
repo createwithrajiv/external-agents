@@ -207,7 +207,7 @@ func (a *Agent) sessionEvent(input []byte, eventType int) *protocol.EventJSON {
 	sessionID := hookInput.SessionID
 	if sessionID == "" {
 		if data, err := os.ReadFile(ref); err == nil {
-			sessionID = sessionIDFromBanner(data)
+			sessionID = sessionIDOf(data)
 		}
 	}
 	if sessionID == "" {
@@ -257,7 +257,7 @@ func (a *Agent) parseTurnEnd() *protocol.EventJSON {
 		return nil
 	}
 
-	sessionID := sessionIDFromBanner(data)
+	sessionID := sessionIDOf(data)
 	if sessionID == "" {
 		return nil
 	}
