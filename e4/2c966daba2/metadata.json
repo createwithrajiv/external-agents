@@ -1,0 +1,31 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "e42c966daba2",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "BUILDATHON.md",
+    "agents/entire-agent-aider/internal/aider/agent_test.go",
+    "agents/entire-agent-aider/internal/aider/hooks_test.go",
+    "agents/entire-agent-aider/internal/aider/state.go",
+    "agents/entire-agent-aider/internal/aider/state_test.go",
+    "agents/entire-agent-aider/internal/aider/transcript_test.go"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e4/2c966daba2/0/metadata.json",
+      "transcript": "/e4/2c966daba2/0/full.jsonl",
+      "compact_transcript": "/e4/2c966daba2/0/transcript.jsonl",
+      "content_hash": "/e4/2c966daba2/0/content_hash.txt",
+      "prompt": "/e4/2c966daba2/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 18,
+    "cache_creation_tokens": 38629,
+    "cache_read_tokens": 486057,
+    "output_tokens": 3146,
+    "api_call_count": 9
+  }
+}

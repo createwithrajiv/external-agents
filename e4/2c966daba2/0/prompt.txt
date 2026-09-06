@@ -1,0 +1,1 @@
+Review the uncommitted work in this repo: the entire-agent-aider external agent, its four test files, and BUILDATHON.md. Explain back to me why aider needed a config-file approach instead of a wrapper, and why the turn-end dedup uses a fingerprint rather than a turn index. Then commit everything.
