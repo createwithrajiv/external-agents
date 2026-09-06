@@ -19,3 +19,7 @@ Implement ExtractSummary for JSONL from checkpoint_created (summary + intent + o
 Do not invent a resume flag: keep --restore-chat-history and document its JSONL behaviour as unverified.
 
 Write failing tests first, covering all four required groups: original Markdown, new JSONL, unknown events, and a truncated final line. The truncated case must yield the turns parsed so far — never an error, never an empty session. Then implement until green, and confirm go test ./... still passes all 65 existing cases unchanged.
+
+---
+
+do it bro
