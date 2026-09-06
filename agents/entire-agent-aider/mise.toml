@@ -1,0 +1,11 @@
+[tasks.build]
+description = "Build the binary"
+run = "go build -o entire-agent-aider ./cmd/entire-agent-aider"
+
+[tasks.test]
+description = "Run unit tests"
+run = "go test ./..."
+
+[tasks.clean]
+description = "Remove built binary"
+run = "rm -f entire-agent-aider"

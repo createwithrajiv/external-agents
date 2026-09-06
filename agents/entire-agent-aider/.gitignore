@@ -1,0 +1,6 @@
+# The built binary only, anchored to this directory — an unanchored
+# "entire-agent-aider" would also match the cmd/entire-agent-aider/ package
+# directory and silently exclude its source.
+/entire-agent-aider
+/entire-agent-aider.exe
+.probe-*/

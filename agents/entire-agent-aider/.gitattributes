@@ -1,0 +1,5 @@
+# The fixtures are byte-exact captures of what aider's own InputOutput writer
+# produced on Windows, CRLF included. Line-ending normalisation would rewrite
+# them and destroy the very property they exist to pin: that the parser handles
+# aider's platform-native line endings.
+internal/aider/testdata/** -text

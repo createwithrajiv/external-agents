@@ -22,6 +22,7 @@ External agents communicate with Entire CLI via subcommands that accept and retu
 | [Grok Build](agents/entire-agent-grok/) | `agents/entire-agent-grok/` | Implemented — hooks + transcript analysis + compact transcripts |
 | [Oh My Pi](agents/entire-agent-omp/) | `agents/entire-agent-omp/` | Implemented — hooks + transcript analysis + compact transcripts |
 | [Kilo](agents/entire-agent-kilo/) | `agents/entire-agent-kilo/` | Implemented (preview) — hooks + transcript analysis + token calculation + compact transcripts |
+| [Aider](agents/entire-agent-aider/) | `agents/entire-agent-aider/` | Implemented (preview) — hooks + transcript analysis + token calculation |
 
 See each agent's own README for setup and usage instructions.
 
@@ -70,6 +71,31 @@ grok "Create hello.txt with hello world"
 The adapter installs Grok command hooks in `.grok/hooks/entire.json` and reads native transcripts from `~/.grok/sessions/<encoded-cwd>/<session-id>/chat_history.jsonl`. Project hooks require folder trust (`/hooks-trust` or `--trust`) before they execute, and until the folder is trusted Grok skips them silently, so nothing is captured.
 
 Restored sessions can be resumed with `grok --resume <session-id>`, but not at full fidelity: Grok's `encrypted_content` reasoning state is stripped before storage, so a resumed session replays the conversation without its prior reasoning context. Sessions captured before this behaviour shipped cannot be resumed at all. See the [agent README](agents/entire-agent-grok/README.md#session-restore-and-resume).
+
+### Aider
+
+Aider support targets the terminal `aider` pair programmer:
+
+```bash
+cd agents/entire-agent-aider
+mise run build
+cp entire-agent-aider ~/.local/bin/
+
+cd /path/to/your/repo
+echo '{"external_agents": true}' > .entire/settings.local.json
+entire enable -y --agent aider --telemetry=false
+aider --model gpt-4o
+```
+
+Aider has no hook or plugin system. The adapter configures aider's one outbound
+callback, `--notifications-command`, through a managed block in
+`.aider.conf.yml`, and redirects aider's chat history under `.entire/` so it
+stays out of the working tree. Because that callback fires whenever aider waits
+for input — including at a mid-turn confirmation prompt — turn ends are
+deduplicated against a fingerprint of the transcript. Headless `aider -m ...`
+runs are not captured: aider never reaches an interactive prompt, so the
+notification never fires. See the [agent README](agents/entire-agent-aider/README.md)
+and [AGENT.md](agents/entire-agent-aider/AGENT.md).
 
 ## Building a New External Agent
 

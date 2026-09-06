@@ -1,0 +1,5 @@
+TO LLM 2026-09-06T10:22:36
+SYSTEM You are an expert software engineer.
+USER add a Greet function
+LLM RESPONSE 2026-09-06T10:22:36
+I'll add a `Greet` function to `greeting.go`.
