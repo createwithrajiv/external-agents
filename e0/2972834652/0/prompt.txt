@@ -1,0 +1,73 @@
+The Noon Curveball landed. Aider has released a new JSONL transcript and lifecycle event format; existing users still produce the original Markdown format. I must support both without duplicating the implementation, never crash on unknown events, and turn an incomplete transcript into a partial result rather than a discarded session.
+
+First, reconstruct my prior work from Entire checkpoint context — what I built, the architecture, and the open risks — before you look at any code.
+
+Then run entire graph impact --symbol parseTurns --repo . --depth 2 and entire graph search --query "transcript parsing and lifecycle event handling" --repo . to identify every parser, lifecycle handler, summary path and checkpoint-writing path affected. Report what you find before proposing any edit.
+
+---
+
+@track-3-agent-session.jsonl this is the new jsonl file
+
+---
+
+Detect by content, not filename or config key — keep chat-history-file: .entire/aider/chat.md unchanged, so managedBlock(), ProtectedFiles and install-hooks need no edits and existing users are unaffected. That also removes the shared-state.json and path-resolution problems, since there stays exactly one transcript path.
+
+Go ahead with the transcriptFormat interface including SplittableMidLine(). For JSONL, chunk only at line boundaries; if one line exceeds maxSize, emit it as an oversized chunk rather than erroring or splitting mid-line — reassembly is concatenation, so that round-trips losslessly, and a corrupted JSON object is worse than a chunk over budget.
+
+Implement ExtractSummary for JSONL from checkpoint_created (summary + intent + open_questions); leave Markdown returning false. Sanitise the JSONL session_id the same way the banner-derived one is — reject colons and separators.
+
+Do not invent a resume flag: keep --restore-chat-history and document its JSONL behaviour as unverified.
+
+Write failing tests first, covering all four required groups: original Markdown, new JSONL, unknown events, and a truncated final line. The truncated case must yield the turns parsed so far — never an error, never an empty session. Then implement until green, and confirm go test ./... still passes all 65 existing cases unchanged.
+
+---
+
+do it bro
+
+---
+
+ok so push now
+
+---
+
+do fork then do commit
+
+---
+
+do it
+
+---
+
+<task-notification>
+<task-id>b3dwzcxsg</task-id>
+<tool-use-id>toolu_01DtADx6i6k6Gh45Bratrbhr</tool-use-id>
+<output-file>C:\Users\rajiv\AppData\Local\Temp\claude\E--codes-hackathon-h2-entire-work\3acaeb06-cb2c-4449-8a01-4e64ff9ff709\tasks\b3dwzcxsg.output</output-file>
+<status>completed</status>
+<summary>Background command "Install GitHub CLI via winget" completed (exit code 0)</summary>
+</task-notification>
+
+---
+
+what exactly do i have to do now?
+
+---
+
+done now what to do?
+
+---
+
+rajiv@Rajiv MINGW64 /e/codes/hackathon/h2/entire-work (main)
+$ git status
+On branch main
+Your branch is up to date with 'origin/main'.
+
+Untracked files:
+  (use "git add <file>..." to include in what will be committed)
+        12-00 - The Noon Curveball is live.pdf
+        track-3-agent-session.jsonl
+
+nothing added to commit but untracked files present (use "git add" to track)
+
+---
+
+read @BTW Buildathon 2026 - Participant Guide (1).pdf  and let me know if we have built the part 3 completely or not?

@@ -1,0 +1,124 @@
+{
+  "cli_version": "0.10.5",
+  "checkpoint_id": "e02972834652",
+  "session_id": "3acaeb06-cb2c-4449-8a01-4e64ff9ff709",
+  "strategy": "manual-commit",
+  "created_at": "2026-09-06T08:52:24.7060921Z",
+  "branch": "docs/checkpoint-links",
+  "checkpoints_count": 9,
+  "save_step_count": 10,
+  "files_touched": [],
+  "agent": "Claude Code",
+  "model": "claude-opus-5[1m]",
+  "turn_id": "9693f3570925",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 206,
+    "cache_creation_tokens": 347605,
+    "cache_read_tokens": 15152679,
+    "output_tokens": 82598,
+    "api_call_count": 103
+  },
+  "session_metrics": {
+    "turn_count": 12
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 17,
+      "user_lines_removed": 0,
+      "agent_lines_added": 503,
+      "agent_lines_removed": 503,
+      "user_added_per_file": {
+        "track-3-agent-session.jsonl": 17
+      }
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 17,
+      "user_lines_removed": 0,
+      "agent_lines_added": 503,
+      "agent_lines_removed": 503,
+      "user_added_per_file": {
+        "track-3-agent-session.jsonl": 17
+      }
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 17,
+      "user_lines_removed": 0,
+      "agent_lines_added": 503,
+      "agent_lines_removed": 503,
+      "user_added_per_file": {
+        "track-3-agent-session.jsonl": 17
+      }
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 17,
+      "user_lines_removed": 0,
+      "agent_lines_added": 503,
+      "agent_lines_removed": 503,
+      "user_added_per_file": {
+        "track-3-agent-session.jsonl": 17
+      }
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 17,
+      "user_lines_removed": 0,
+      "agent_lines_added": 503,
+      "agent_lines_removed": 503,
+      "user_added_per_file": {
+        "track-3-agent-session.jsonl": 17
+      }
+    },
+    {
+      "checkpoint_number": 8,
+      "user_lines_added": 17,
+      "user_lines_removed": 0,
+      "agent_lines_added": 503,
+      "agent_lines_removed": 503,
+      "user_added_per_file": {
+        "track-3-agent-session.jsonl": 17
+      }
+    },
+    {
+      "checkpoint_number": 9,
+      "user_lines_added": 17,
+      "user_lines_removed": 0,
+      "agent_lines_added": 503,
+      "agent_lines_removed": 503,
+      "user_added_per_file": {
+        "track-3-agent-session.jsonl": 17
+      }
+    },
+    {
+      "checkpoint_number": 10,
+      "user_lines_added": 17,
+      "user_lines_removed": 0,
+      "agent_lines_added": 503,
+      "agent_lines_removed": 503,
+      "user_added_per_file": {
+        "track-3-agent-session.jsonl": 17
+      }
+    },
+    {
+      "checkpoint_number": 11,
+      "user_lines_added": 17,
+      "user_lines_removed": 0,
+      "agent_lines_added": 503,
+      "agent_lines_removed": 503,
+      "user_added_per_file": {
+        "track-3-agent-session.jsonl": 17
+      }
+    }
+  ]
+}
