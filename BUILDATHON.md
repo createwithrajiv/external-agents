@@ -340,12 +340,29 @@ yields 65 passing cases. Nothing was rewritten to accommodate the new format.
 
 ## Checkpoint links and what each checkpoint proves
 
-| Milestone | Checkpoint | What it proves |
-|---|---|---|
-| Initial understanding and intended architecture | *(pending)* | Why aider is the hard case, and the config-file-over-wrapper decision |
-| Last stable state before the Noon Curveball | *(pending)* | Working end-to-end capture with tests green |
-| Response to the Noon Curveball | *(pending)* | |
-| Final implementation and verification | *(pending)* | |
+Repository mirror: `entire://aws-ap-south-1.entire.io/gh/createwithrajiv/external-agents`
+(Entire project `01M1TN3W2GGQC5QEDDKTYRYG9T`, region `in`). Open any checkpoint with
+`entire checkpoint explain <id>` from a clone of that mirror.
+
+| Milestone | Checkpoint | Commit | What it proves |
+|---|---|---|---|
+| Initial understanding and intended architecture | `e42c966daba2` | `24a9739` | Why aider is the hard case — no hook system, only `--notifications-command` with five documented weaknesses — and the two decisions that follow: config file over wrapper, fingerprint over turn index. Records the rejected wrapper option and why it loses |
+| Last stable state before the Noon Curveball | `c47c0664af62` | `8327df7` | Working end-to-end capture with the suite green: 65 cases, 92.1% coverage, and a semantic diff proving exactly one production entity changed in the preceding test pass |
+| Response to the Noon Curveball | `4309066d4958` | `047450c` | The fresh session reconstructed the project from checkpoint context before reading any code, ran `entire graph impact --symbol parseTurns --depth 2`, and used its type-consumer output to place the format seam below `parseTurns`. Dual-format support, tests first, then green |
+| Final implementation and verification | `6dce1122db8e` | `e33d8a5` | The semantic diff of the Curveball change itself: seven touched production entities, every one a dispatch site, and no Markdown parsing logic in the list — the evidence that a second format was added without disturbing the first |
+
+**On the first checkpoint's intent line.** It reads *"Review the uncommitted work in this
+repo…"* rather than "initial understanding", because the architecture was explained in
+response to a review request rather than written up in advance. The body carries the
+substance — the wrapper rejection and the fingerprint rationale are both argued there in
+full — but the intent line understates it, and that is a property of how the work
+happened rather than something worth retrofitting.
+
+**Session continuity.** The Curveball response ran in a genuinely fresh agent session
+(`3acaeb06-cb2c…`), separate from the session that built the original adapter
+(`a9711272-cda1…`). Reconstruction from checkpoint context came first, before any file
+was opened — which is what the required workflow asks for, and what makes the
+checkpoints load-bearing rather than decorative.
 
 ## Setup, run and test instructions
 
