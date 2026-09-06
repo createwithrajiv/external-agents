@@ -75,10 +75,11 @@ func (a *Agent) Detect() protocol.DetectResponse {
 
 // GetSessionID returns the session identifier for a hook payload.
 //
-// Aider records no session ID of any kind and its notification command passes
-// no payload, so the incoming HookInput is normally empty. The ID is derived
-// instead from the most recent run banner in the transcript, which is the only
-// per-run marker aider writes.
+// Aider's notification command passes no payload, so the incoming HookInput is
+// normally empty and the ID comes from the transcript. Where it comes from
+// there depends on the format: the markdown history records no session ID of
+// any kind, so the most recent run banner's timestamp is used, while the
+// structured format states an ID outright. sessionIDOf picks the right one.
 func (a *Agent) GetSessionID(input *protocol.HookInputJSON) string {
 	if input != nil && input.SessionID != "" {
 		return input.SessionID
@@ -87,7 +88,7 @@ func (a *Agent) GetSessionID(input *protocol.HookInputJSON) string {
 	if err != nil {
 		return ""
 	}
-	return sessionIDFromBanner(data)
+	return sessionIDOf(data)
 }
 
 // GetSessionDir returns the directory holding aider session state.
@@ -173,7 +174,7 @@ func (a *Agent) ReadSession(input *protocol.HookInputJSON) (protocol.AgentSessio
 	}
 	session.NativeData = data
 	if session.SessionID == "" {
-		session.SessionID = sessionIDFromBanner(data)
+		session.SessionID = sessionIDOf(data)
 	}
 	for _, t := range parseTurns(data) {
 		for _, f := range t.ModifiedFiles {
@@ -206,6 +207,14 @@ func (a *Agent) WriteSession(session protocol.AgentSessionJSON) error {
 // the conversation. The session ID is not passed: aider has no flag that
 // selects a run, so resuming replays whatever the configured chat-history-file
 // currently holds.
+//
+// UNVERIFIED for the structured JSONL format. The flag is documented and read
+// against the markdown history (base_coder.py:520); whether the same flag also
+// accepts a JSONL transcript, or whether a new one exists for it, has not been
+// checked against aider's source. The command is left unchanged rather than
+// guessed at — emitting a flag that does not exist would fail at the point the
+// user most needs the resume to work, and reporting no resume command at all
+// would remove a capability that still works for every existing user.
 func (a *Agent) FormatResumeCommand(sessionID string) string {
 	cmd := "aider --restore-chat-history"
 	if strings.TrimSpace(sessionID) == "" {

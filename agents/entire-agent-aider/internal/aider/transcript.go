@@ -46,13 +46,29 @@ func blockquoteText(line string) (string, bool) {
 	return strings.CutPrefix(classify(line), blockquotePrefix)
 }
 
-// parseTurns splits a chat history into turns.
+// parseTurns splits a transcript into turns, whichever format it is in.
+//
+// This is the single dispatch point for the whole package. Every caller — the
+// lifecycle hooks, all four transcript_analyzer methods, token calculation —
+// goes through here and sees []turn, so supporting a second format costs one
+// decoder rather than a second copy of everything above it.
+//
+// It returns no error, and that signature is load-bearing rather than
+// convenient. An unreadable region must cost only the events inside it: an
+// incomplete transcript has to degrade into a partial result, never a discarded
+// session, and an error return would invite exactly that discard at each of the
+// twelve call sites.
+func parseTurns(data []byte) []turn {
+	return detectFormat(data).Turns(data)
+}
+
+// parseMarkdownTurns splits an aider chat history into turns.
 //
 // A turn opens at a RUN of consecutive prompt lines, not at each one: aider
 // prefixes every line of a multi-line submission with "#### " (io.py:775), so
 // treating each prefixed line as its own turn would count a two-line prompt as
 // two turns and desynchronize every offset in this package.
-func parseTurns(data []byte) []turn {
+func parseMarkdownTurns(data []byte) []turn {
 	lines := splitLines(data)
 	var turns []turn
 	var cur *turn
@@ -248,10 +264,25 @@ func (a *Agent) ExtractPrompts(sessionRef string, offset int) ([]string, error) 
 	return prompts, nil
 }
 
-// ExtractSummary reports no summary. Aider writes no session summary anywhere,
-// and inventing one from the transcript would be a guess presented as a fact.
-func (a *Agent) ExtractSummary(_ string) (string, bool, error) {
-	return "", false, nil
+// ExtractSummary returns a session summary when the transcript records one.
+//
+// Whether there is one to return is a property of the FORMAT, not of aider. The
+// original markdown history holds no summary anywhere, so reporting one there
+// would be a guess presented as a fact. The structured format records the
+// agent's own summary, intent and open questions in a checkpoint_created event,
+// so reporting those is reading a record rather than inventing one.
+func (a *Agent) ExtractSummary(sessionRef string) (string, bool, error) {
+	data, err := os.ReadFile(sessionRef)
+	if err != nil {
+		if os.IsNotExist(err) {
+			// Aider creates the transcript lazily on its first append, so an
+			// absent file is a normal early-session state, not a failure.
+			return "", false, nil
+		}
+		return "", false, fmt.Errorf("read aider transcript: %w", err)
+	}
+	summary, ok := detectFormat(data).Summary(data)
+	return summary, ok, nil
 }
 
 // --- token_calculator capability -----------------------------------------
@@ -288,15 +319,17 @@ func (a *Agent) CalculateTokens(data []byte, offset int) (protocol.TokenUsageRes
 
 // --- chunking -------------------------------------------------------------
 
-// ChunkTranscript splits a chat history into chunks of at most maxSize bytes,
-// preferring turn boundaries, falling back to line boundaries inside an
-// oversized turn and to raw byte boundaries inside an oversized line.
+// ChunkTranscript splits a transcript into chunks of at most maxSize bytes,
+// preferring the boundaries its format declares.
 //
 // Reassembly is plain concatenation, so a split is lossless wherever it lands.
-// That is what allows the byte-level fallback: a JSONL chunker must reject an
-// oversized line because splitting a JSON object corrupts it, but Markdown has
-// no such constraint, and dropping a session because one assistant message
-// contained a very long line would be the worse failure.
+// What differs between the formats is whether a split is legal at all inside a
+// line. Markdown has no per-line structure to corrupt, so an oversized line is
+// cut at a byte boundary and the budget is honoured — dropping a session
+// because one assistant message contained a very long line would be the worse
+// failure. JSONL lines are individually parseable objects, so cutting one
+// corrupts it; there an oversized line is emitted whole as a single
+// over-budget chunk, which still round-trips exactly.
 func (a *Agent) ChunkTranscript(content []byte, maxSize int) ([][]byte, error) {
 	if len(content) == 0 {
 		return [][]byte{}, nil
@@ -316,7 +349,8 @@ func (a *Agent) ChunkTranscript(content []byte, maxSize int) ([][]byte, error) {
 			cur = nil
 		}
 	}
-	for _, seg := range turnSegments(content) {
+	format := detectFormat(content)
+	for _, seg := range format.Segments(content) {
 		if len(cur)+len(seg) <= maxSize {
 			cur = append(cur, seg...)
 			continue
@@ -324,6 +358,12 @@ func (a *Agent) ChunkTranscript(content []byte, maxSize int) ([][]byte, error) {
 		flush()
 		if len(seg) <= maxSize {
 			cur = append([]byte(nil), seg...)
+			continue
+		}
+		if !format.SplittableMidLine() {
+			// Over budget, but intact. Rejecting it would discard the session
+			// and splitting it would hand back a corrupted object.
+			chunks = append(chunks, append([]byte(nil), seg...))
 			continue
 		}
 		parts := splitBytes(seg, maxSize)
@@ -348,8 +388,8 @@ func (a *Agent) ReassembleTranscript(chunks [][]byte) ([]byte, error) {
 	return out, nil
 }
 
-// turnSegments slices content into byte ranges that each begin at a turn
-// boundary, preserving every byte in order.
+// turnSegments slices a markdown chat history into byte ranges that each begin
+// at a turn boundary, preserving every byte in order.
 func turnSegments(content []byte) [][]byte {
 	lines := splitLines(content)
 	var segments [][]byte

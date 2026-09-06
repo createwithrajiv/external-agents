@@ -64,11 +64,16 @@ func loadState(sessionDir string) sessionState {
 	if err != nil {
 		return st
 	}
-	var parsed sessionState
-	if json.Unmarshal(data, &parsed) != nil {
+	// Unmarshal through a pointer, not a value. A file containing the literal
+	// `null` unmarshals successfully into a value and leaves it zeroed, which
+	// would report LastTurnEnd.TurnIndex == 0 — indistinguishable from "turn 0
+	// already checkpointed" — and silently swallow the first turn of the
+	// session. Into a pointer, `null` leaves it nil and is caught here.
+	var parsed *sessionState
+	if json.Unmarshal(data, &parsed) != nil || parsed == nil {
 		return st
 	}
-	return parsed
+	return *parsed
 }
 
 // saveState writes session state atomically.
