@@ -150,7 +150,8 @@ $ grep -n "parseTurns(" *.go | grep -v "func parseTurns" | wc -l
 **The graph reported 8 direct callers; the source has exactly 8 call sites.**
 The claim was checked rather than trusted. The full test suite
 (`go test ./...`, 65 cases, 92.1% statement coverage) passes against the same
-tree.
+tree. *(Counts as of the pre-curveball commit; see the Noon Curveball section
+for the current figures.)*
 
 **4. Semantic diff of the submitted implementation.**
 
@@ -178,9 +179,164 @@ one function whose behaviour did change, matching what the test failure told us.
 The "5 dependents" count is also the graph's own signal to run the tests before
 trusting the change — which we did (`go test ./...`, 65 cases green).
 
+**5. Semantic diff of the Noon Curveball change.**
+
+```
+entire graph diff --base b8c8af3 --head HEAD --repo . -- agents/entire-agent-aider
+```
+
+The entity-level change list separates cleanly into *new* and *touched*:
+
+```
+format.go   + 18 entities  (transcriptFormat + its 6 methods, detectFormat,
+                            isJSONLTranscript, sanitizeSessionID, sessionIDOf,
+                            markdownFormat + its 6 methods)
+jsonl.go    + 19 entities  (jsonlFormat + its 6 methods, jsonlEvent + 8 fields,
+                            decodeJSONLLine, eachJSONLEvent)
+
+agent.go        ~ Agent.GetSessionID    body changed  (19 dependents)
+                ~ Agent.ReadSession     body changed  (33 dependents)
+hooks.go        ~ Agent.sessionEvent    body changed  ( 1 dependent)
+                ~ Agent.parseTurnEnd    body changed  ( 1 dependent)
+transcript.go   ~ parseTurns            body changed  (15 dependents)
+                + parseMarkdownTurns    added
+                ~ Agent.ExtractSummary  signature      (35 dependents)
+                ~ Agent.ChunkTranscript body changed  (28 dependents)
+types.go        ~ constants and comments
+```
+
+**The finding that matters: seven touched production entities, and every one of
+them is a dispatch site.** Four are the `sessionIDFromBanner` → `sessionIDOf`
+swap, one is `parseTurns` becoming a one-line dispatch, and two are
+`ExtractSummary` and `ChunkTranscript` consulting the format. That is the
+negative claim the diff can make and a line-level `git diff` cannot: **no
+Markdown parsing logic changed at all.** `isPromptLine`, `blockquoteText`,
+`absorbToolLine`, `parseTokenReport`, `parseTokenCount`, `sessionIDFromBanner`,
+`turnSegments`, `fingerprintOf`, `advancedOver`, `loadState`,
+`GetTranscriptPosition`, `ExtractModifiedFiles`, `ExtractPrompts`,
+`CalculateTokens`, `managedBlock`, `InstallHooks`, `Info` — none appear in the
+diff. Support for a second format was added without touching the first one's
+behaviour, which is what "no duplicated implementation" has to mean in practice.
+
+Two honest readings of that list. `parseMarkdownTurns` shows as **added** rather
+than changed because the original `parseTurns` body was moved under a new name;
+the graph cannot prove the body is byte-identical, so the 65 unchanged
+pre-existing test cases are what carries that claim instead. And
+`ExtractSummary`'s "signature changed" is the parameter going from an unused
+`_ string` to a named `sessionRef string` — the types are identical; it now
+reads the file it was always handed.
+
+The dependent counts are the risk signal: 35 on `ExtractSummary`, 33 on
+`ReadSession`, 28 on `ChunkTranscript`. All three are high-fan-in, which is why
+the full suite was run rather than only the new tests.
+
 ## Noon Curveball: what changed and how we adapted
 
-*(to be completed at 12:00)*
+**The curveball.** Aider released a new JSONL transcript and lifecycle event
+format. Existing users still produce the original Markdown. Three requirements:
+support both without duplicating the implementation, never crash on an unknown
+event, and turn an incomplete transcript into a *partial* result rather than a
+discarded session.
+
+**Where the graph pointed the change.** The same
+`entire graph impact --symbol parseTurns --depth 2` from section 2 is what made
+the design obvious rather than guessed:
+
+> Type consumers (0 in, 2 out): `-> turn` [RETURNS_TYPE], `-> turn` [USES_TYPE]
+
+All 12 callers consume `[]turn` and **nothing else**. So the format seam belongs
+*below* `parseTurns`, not above it: one dispatch point reaches every caller, and
+no caller changes. Putting it above would have meant editing all four production
+callers plus three transitive ones and maintaining two copies of the analyzer
+surface. The callee list said the same thing from the other side — `splitLines`,
+`isPromptLine`, `promptLineText`, `blockquoteText`, `absorbToolLine` are all
+Markdown-shape-specific, and they are exactly what a second format replaces.
+
+The graph also **under-reported one path**, which is why its output is treated
+as evidence rather than an oracle: `ChunkTranscript` never appears in
+`parseTurns`' blast radius, because it reaches the Markdown helpers through
+`turnSegments` as a *sibling* rather than through `parseTurns`. It was found by
+reading the callee list and checking who else used those five helpers.
+
+**What was built.**
+
+```
+                         .entire/aider/chat.md          ← path UNCHANGED
+                                  │
+                          detectFormat(data)            ← by CONTENT, not filename
+                        ┌─────────┴─────────┐
+              markdownFormat            jsonlFormat
+                        └─────────┬─────────┘
+                            []turn (shared)
+                                  │
+     fingerprint · dedup · state.json · turn-end event · the four
+     transcript_analyzer methods · CalculateTokens · chunking
+                          — all written ONCE
+```
+
+| Requirement | How it is met |
+|---|---|
+| No duplicated implementation | One IR (`turn`), two decoders behind `transcriptFormat`; everything above the interface is shared. `markdownFormat` *delegates to the original functions* — it is not a reimplementation |
+| Never crash on unknown events | The JSONL decoder switches on `event` and falls through for anything else; `encoding/json` drops unknown fields for free. Mirrors the existing `ParseHook` `default: return nil, nil` one layer down |
+| Partial, not discarded | Decoding is per line. A malformed line costs that one event. `parseTurns` returns **no error** — a signature that is load-bearing, since an error return would invite a discard at each of the 12 call sites |
+
+**Detection is by content, never by filename or config key.** The first
+non-blank line's leading `{` decides. This is what keeps `managedBlock()`,
+`ProtectedFiles`, `install-hooks` and `chat-history-file` untouched, so existing
+users are unaffected — and because there is still exactly one transcript path,
+there is still one session directory and one `state.json`, so turn-end dedup
+needed no per-format keying. Prefix matching rather than a trial
+`json.Unmarshal` is deliberate: it keeps detection working when the *first* line
+is itself truncated, which a stricter check would misread as Markdown and turn
+into a silently empty session.
+
+**Four things the new format fixes.**
+
+1. **Session identity.** `parseTurnEnd` returns `nil` when the session ID is
+   empty, and the Markdown ID is derived from a run banner. JSONL states
+   `session_id` outright — but it is sanitised the same way, because it becomes
+   a path component. Disallowed characters are *replaced*, not rejected:
+   discarding the ID would return `""` and drop the checkpoint, which is the
+   exact silent capture loss the structured format was meant to remove.
+2. **Token counts are exact.** `input_tokens: 8421`, not Markdown's rounded
+   `8.4k`.
+3. **`ExtractSummary` finally has something to report.** `checkpoint_created`
+   carries the agent's own `summary`, `intent` and `open_questions`. Markdown
+   still reports none — that is a property of the format, not of aider, and
+   inventing one there would still be a guess.
+4. **A real `session_ended` event** exists, where aider previously had none.
+
+**One trade made explicitly.** `ChunkTranscript`'s original comment already
+predicted this case: *"a JSONL chunker must reject an oversized line because
+splitting a JSON object corrupts it, but Markdown has no such constraint."* The
+formats now answer `SplittableMidLine()` differently. Markdown keeps its
+byte-level fallback and honours the size budget. JSONL emits an oversized line
+whole, as a single over-budget chunk — reassembly is concatenation, so it still
+round-trips exactly, and a corrupted JSON object is worse than a chunk over
+budget.
+
+**What was deliberately *not* done.** `FormatResumeCommand` still emits
+`aider --restore-chat-history`, documented in-source as **unverified** for
+JSONL. The flag is confirmed against the Markdown history
+(`base_coder.py:520`); whether it also accepts JSONL has not been checked
+against aider's source. Emitting an invented flag would fail exactly when the
+user needs the resume, and dropping the capability would break every existing
+user. No speculative schema was added either: `jsonlEvent` declares only fields
+actually observed in the format.
+
+**Verification.** Tests were written to fail first, covering all four required
+groups — original Markdown, new JSONL, unknown events, and a truncated final
+line at four different cut points. The truncated cases assert the turns parsed
+so far, a still-resolvable session ID, and explicitly fail on an empty result.
+
+```
+before:  45 top-level tests · 65 cases · 92.1% coverage
+after:   71 top-level tests · 108 cases · 93.3% coverage
+```
+
+The four original test files are **byte-identical** to the pre-curveball commit
+(`git diff --stat` empty), and running exactly the 45 original test names still
+yields 65 passing cases. Nothing was rewritten to accommodate the new format.
 
 ## Checkpoint links and what each checkpoint proves
 
@@ -225,14 +381,15 @@ started just now · tokens 2.6k
 
 ```bash
 cd agents/entire-agent-aider
-go test ./...                 # 65 cases
-go test -cover ./internal/aider/   # 92.1% of statements
+go test ./...                 # 108 cases
+go test -cover ./internal/aider/   # 93.3% of statements
 ```
 
-Test fixtures under `internal/aider/testdata/` were generated by driving aider's
-own `InputOutput` writer class, so they are byte-for-byte what aider produces
-rather than hand-written mocks. `.gitattributes` disables line-ending
-normalisation so the CRLF the parser must tolerate survives in git.
+Test fixtures under `internal/aider/testdata/` are real transcripts, not
+hand-written mocks: `chat_history.md` was generated by driving aider's own
+`InputOutput` writer class, and `session.jsonl` is the structured transcript
+from the Noon Curveball. `.gitattributes` disables line-ending normalisation for
+that directory so the CRLF the Markdown parser must tolerate survives in git.
 
 **Notes for reproducing on Windows:** run aider from PowerShell, not Git Bash —
 aider's `prompt_toolkit` requires a real Windows console. Git Bash also rewrites
@@ -253,14 +410,19 @@ oversights:
 - **Headless runs are not captured.** Under `aider -m "..." --yes-always`,
   `ring_bell` is unreachable because aider never hits an interactive prompt, so
   the notification never fires.
-- **Token counts are rounded at or above 1000.** `format_tokens`
-  (`aider/utils.py:276`) renders `<1000` exactly, `<10000` as `1.2k` and the
-  rest as `15k`, and `--llm-history-file` carries no counts at all — so no
-  unrounded copy exists anywhere on disk. Cost figures are more precise.
+- **Token counts are rounded at or above 1000 — in the Markdown format only.**
+  `format_tokens` (`aider/utils.py:276`) renders `<1000` exactly, `<10000` as
+  `1.2k` and the rest as `15k`, and `--llm-history-file` carries no counts at
+  all, so no unrounded copy exists anywhere on disk. The JSONL format reports
+  exact integers and has no such limitation.
 - **One transcript per repo.** Aider is configured with a single
-  `chat-history-file`, so runs append to the same file and are separated by the
-  `# aider chat started at ...` banner within it, which is also where the
-  session ID comes from.
+  `chat-history-file`, so runs append to the same file and are separated within
+  it — by the `# aider chat started at ...` banner in Markdown, or by
+  `session_started` in JSONL. Both are also where the session ID comes from.
+- **Resume is unverified for JSONL.** `--restore-chat-history` is confirmed
+  against the Markdown history (`base_coder.py:520`). Whether it accepts a JSONL
+  transcript has not been checked against aider's source, so the command is
+  emitted unchanged and the uncertainty is documented rather than papered over.
 
 **Next steps toward production readiness:**
 
